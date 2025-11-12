@@ -1,8 +1,14 @@
+import * as bcrypt from "bcrypt";
 import * as dotenv from "dotenv";
 import * as jwt from "jsonwebtoken";
-import { smtpConfig } from "../config/emailConfig"; // Use a config de prod/dev
+import { smtpConfig } from "../config/emailConfig";
 import { enviarEmail } from "../services/emailService";
 import { OpcoesEmail } from "../types/email";
+
+// Interface para o payload do token (boa prática)
+interface JwtPayload {
+   email: string;
+}
 
 // Carrega o .env (importante para o JWT_SECRET)
 dotenv.config();
@@ -16,35 +22,26 @@ if (!JWT_SECRET) {
 
 /**
  * Lógica de "Esqueci a Senha"
- * (Em um projeto real, isso seria chamado pela sua Rota/Endpoint)
+ * (Gera token e envia o e-mail)
  */
 export async function solicitarRecuperacaoSenha(emailDoUsuario: string) {
    console.log(`Solicitação de recuperação para: ${emailDoUsuario}`);
 
-   // --- 1. Verifique se o usuário existe (Simulação) ---
-   // TODO: Substitua isso pela sua lógica real de banco de dados
-   // const usuario = await seuBanco.user.findUnique({ where: { email: emailDoUsuario } });
-   // if (!usuario) {
-   //   console.warn('Tentativa de recuperação para e-mail não existente.');
-   //   // (Não retorne erro para o usuário por segurança, apenas não envie o e-mail)
-   //   return;
-   // }
+   // TODO: Adicionar lógica real de banco de dados para verificar se o usuário existe
 
-   // --- 2. Gerar o Token de Recuperação ---
-   // Este token será válido por 1 hora (3600 segundos)
+   // --- 1. Gerar o Token de Recuperação ---
    const tokenDeRecuperacao = jwt.sign(
-      { email: emailDoUsuario }, // O "payload" - o que o token carrega
-      JWT_SECRET!, // O "segredo" para assinar o token
+      { email: emailDoUsuario }, // O payload
+      JWT_SECRET!, // O segredo (com '!' para o TypeScript)
       { expiresIn: "1h" } // Tempo de expiração
    );
 
-   // --- 3. Montar o Link de Recuperação ---
-   // Este é o link que o usuário vai clicar no e-mail
+   // --- 2. Montar o Link de Recuperação ---
    const link = `https://www.seu-frontend.com/resetar-senha?token=${tokenDeRecuperacao}`;
 
-   // --- 4. Preparar o E-mail ---
+   // --- 3. Preparar o E-mail ---
    const opcoes: OpcoesEmail = {
-      from: '"Seu App" <nao-responda@seuapp.com>', // Use um e-mail "from" genérico
+      from: '"Seu App" <nao-responda@seuapp.com>',
       to: emailDoUsuario,
       subject: "Redefinição de Senha Solicitada",
       html: `
@@ -62,26 +59,65 @@ export async function solicitarRecuperacaoSenha(emailDoUsuario: string) {
       text: `Para redefinir sua senha, copie e cole este link no seu navegador: ${link}`,
    };
 
-   // --- 5. Enviar o E-mail usando seu serviço ---
+   // --- 4. Enviar o E-mail ---
    try {
-      await enviarEmail(smtpConfig, opcoes); // (Use a config apropriada)
+      await enviarEmail(smtpConfig, opcoes);
       console.log(
          `✅ E-mail de recuperação enviado com sucesso para ${emailDoUsuario}`
       );
    } catch (error) {
-      console.error(
-         `❌ Erro ao enviar e-mail de recuperação para ${emailDoUsuario}:`,
-         error
-      );
+      // Correção: Verificar o tipo do 'error' antes de usar .message
+      if (error instanceof Error) {
+         console.error(
+            `❌ Erro ao enviar e-mail de recuperação para ${emailDoUsuario}:`,
+            error.message
+         );
+      } else {
+         console.error(
+            `❌ Erro desconhecido ao enviar e-mail para ${emailDoUsuario}:`,
+            error
+         );
+      }
    }
 }
 
-// --- Para Testar este arquivo (como fizemos com o index.ts) ---
+/**
+ * Lógica de "Redefinir a Senha"
+ * (Verifica o token e atualiza a senha)
+ */
+export async function redefinirSenha(token: string, novaSenha: string) {
+   try {
+      // --- 1. Verificar o Token ---
+      // Correção: A lógica dependente (payload, hash, db) vai DENTRO do 'try'
+      const payload = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
-async function testarRecuperacao() {
-   // Simula uma chamada de API
-   await solicitarRecuperacaoSenha(process.env.GMAIL_USER!); // Envia o teste para seu próprio e-mail
+      const emailDoUsuario = payload.email;
+      console.log(`Token válido. Redefinindo senha para: ${emailDoUsuario}`);
+
+      // --- 2. Hashear (Criptografar) a Nova Senha ---
+      const saltRounds = 10;
+      const hashDaSenha = await bcrypt.hash(novaSenha, saltRounds);
+
+      // --- 3. Salvar no Banco de Dados (Simulação) ---
+      // TODO: Substitua esta simulação pela sua lógica real de banco de dados
+      console.log("--- SIMULAÇÃO DE BANCO DE DADOS ---");
+      console.log(`Usuário encontrado: ${emailDoUsuario}`);
+      console.log(
+         `Nova senha hasheada salva: ${hashDaSenha.substring(0, 20)}...`
+      );
+      console.log("--- SENHA ATUALIZADA NO BANCO (simulado) ---");
+
+      // O 'return' de sucesso fica no final do 'try'
+      return { success: true, message: "Senha redefinida com sucesso." };
+   } catch (error) {
+      // Correção: Verificar o tipo do 'error' antes de usar .message
+      if (error instanceof Error) {
+         console.error("Erro ao verificar token:", error.message);
+      } else {
+         console.error("Ocorreu um erro desconhecido:", error);
+      }
+
+      // O 'throw' de falha fica no 'catch'
+      throw new Error("Token inválido ou expirado.");
+   }
 }
-
-// Rode `npx ts-node controllers/auth.controller.ts` para testar
-testarRecuperacao().catch(console.error);
