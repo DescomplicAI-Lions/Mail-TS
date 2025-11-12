@@ -1,3 +1,4 @@
+//Forcando a atualizacao do PR
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { smtpConfig } from "./config/emailConfig";
 import { enviarEmail } from "./services/emailService";
@@ -8,11 +9,9 @@ export default async function (
    response: VercelResponse
 ) {
    if (request.method !== "POST") {
-      return response
-         .status(405)
-         .json({
-            message: "Method Not Allowed. Only POST requests are accepted.",
-         });
+      return response.status(405).json({
+         message: "Method Not Allowed. Only POST requests are accepted.",
+      });
    }
 
    const { to, resetUrl } = request.body;
@@ -43,12 +42,10 @@ export default async function (
       console.log(
          `[MailService] Email sent to ${to}. Message ID: ${result.messageId}`
       );
-      response
-         .status(200)
-         .json({
-            message: "Email sent successfully.",
-            messageId: result.messageId,
-         });
+      response.status(200).json({
+         message: "Email sent successfully.",
+         messageId: result.messageId,
+      });
    } catch (error: any) {
       console.error(
          `[MailService] Error sending email to ${to}:`,
