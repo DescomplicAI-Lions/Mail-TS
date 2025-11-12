@@ -30,3 +30,11 @@ Thumbs.db
 logs
 *.log
 EOF
+
+# Arquivo .gitignore
+
+# Ignorar o arquivo de variáveis de ambiente
+.env
+
+# Ignorar a pasta de pacotes do Node
+node_modules
