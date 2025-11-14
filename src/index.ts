@@ -1,4 +1,3 @@
-//Forcando a atualizacao do PR
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { smtpConfig } from "./config/emailConfig";
 import { enviarEmail } from "./services/emailService";
@@ -14,27 +13,20 @@ export default async function (
       });
    }
 
-   const { to, resetUrl } = request.body;
+   const { to, subject, html, text } = request.body;
 
-   if (!to || !resetUrl) {
+   if (!to || !subject || (!html && !text)) {
       return response
          .status(400)
-         .json({ message: 'Missing "to" or "resetUrl" in request body.' });
+         .json({ message: 'Missing "to", "subject", or email content (html/text) in request body.' });
    }
 
    const opcoesEmail: OpcoesEmail = {
-      from: process.env.EMAIL_FROM || '"Your App" <noreply@your-app.com>',
+      from: process.env.EMAIL_FROM || '"DescomplicAi" <noreply@descomplicai.com>',
       to: to,
-      subject: "Redefinição de Senha ou Login Mágico",
-      html: `
-      <p>Olá,</p>
-      <p>Você solicitou uma redefinição de senha ou um login mágico para sua conta.</p>
-      <p>Clique no link abaixo para continuar:</p>
-      <p><a href="${resetUrl}">${resetUrl}</a></p>
-      <p>Este link é válido por 15 minutos.</p>
-      <p>Se você não solicitou isso, por favor, ignore este e-mail.</p>
-    `,
-      text: `Olá,\nVocê solicitou uma redefinição de senha ou um login mágico para sua conta.\nClique no link abaixo para continuar: ${resetUrl}\nEste link é válido por 15 minutos.\nSe você não solicitou isso, por favor, ignore este e-mail.`,
+      subject: subject, 
+      html: html,      
+      text: text,       
    };
 
    try {
